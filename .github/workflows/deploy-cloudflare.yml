@@ -24,6 +24,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Inject Cloudflare route settings (optional)
+        env:
+          CLOUDFLARE_DOMAIN: ${{ secrets.CLOUDFLARE_DOMAIN }}
+          CLOUDFLARE_ZONE_NAME: ${{ secrets.CLOUDFLARE_ZONE_NAME }}
+        run: |
+          if [ -n "$CLOUDFLARE_DOMAIN" ] && [ -n "$CLOUDFLARE_ZONE_NAME" ]; then
+            sed -i "s|<YOUR_DOMAIN>|$CLOUDFLARE_DOMAIN|g" wrangler.jsonc
+            sed -i "s|<YOUR_ZONE>|$CLOUDFLARE_ZONE_NAME|g" wrangler.jsonc
+            echo "Updated wrangler.jsonc routes from GitHub Secrets."
+          else
+            echo "CLOUDFLARE_DOMAIN / CLOUDFLARE_ZONE_NAME not provided; using wrangler.jsonc as-is."
+          fi
+
+      - name: Validate Wrangler configuration
+        run: |
+          if rg -n "<YOUR_DOMAIN>|<YOUR_ZONE>" wrangler.jsonc; then
+            echo "::error::wrangler.jsonc still contains placeholder routes (<YOUR_DOMAIN>/<YOUR_ZONE>)."
+            echo "::error::Set CLOUDFLARE_DOMAIN and CLOUDFLARE_ZONE_NAME repo secrets, or replace placeholders in wrangler.jsonc."
+            exit 1
+          fi
+
       - name: Deploy worker
         run: npm run deploy
         env:
